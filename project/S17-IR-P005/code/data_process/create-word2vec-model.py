@@ -2,38 +2,47 @@ from __future__ import print_function
 from pyspark import SparkConf, SparkContext
 from pyspark.mllib.feature import Word2Vec
 
+import sys
 
-def getAnalogy(s, model):
-    qry = model.transform(s[0]) - model.transform(s[1]) - model.transform(s[2])
-    res = model.findSynonyms((-1)*qry,5) # return 5 "synonyms"
-    res = [x[0] for x in res]
-    for k in range(0,3):
-        if s[k] in res:
-            res.remove(s[k])
-    return res[0]
+reload(sys)
+sys.setdefaultencoding('utf8')
 
+import ConfigParser
+config = ConfigParser.RawConfigParser()
+config.read('../config.properties')
+
+
+
+# get config data
+data_location = config.get('DataSection', 'data_location')
+model_location = config.get('DataSection', 'model_location')
+spark_master = config.get('SparkSection', 'spark_master')
+spark_executor_memory = config.get('SparkSection', 'spark_executor_memory')
+min_word_count = config.get('ModelSection', 'min_word_count')
+num_iterations = config.get('ModelSection', 'num_iterations')
+vector_size = config.get('ModelSection', 'vector_size')
+debug_flag = config.get('Debug', 'debug')
 
 conf = (SparkConf()
-         .setMaster("spark://usl03917.local:7078")
+         .setMaster(spark_master)
          .setAppName("WikiWord2Vec")
-         .set("spark.executor.memory", "1g"))
+         .set("spark.executor.memory", spark_executor_memory))
 sc = SparkContext(conf = conf)
 
-#inp = sc.textFile("/Users/Avadhoot/msdatascience/course524/cloudmesh/sp17-i524/project/S17-IR-P005/code/crawldb").map(lambda row: row.split(" "))
-inp = sc.textFile("../crawldb").map(lambda row: row.split(" "))
-k = 220         # vector dimensionality
-word2vec = Word2Vec().setVectorSize(k)
+inp = sc.textFile(data_location).map(lambda row: row.split(" "))
+word2vec = Word2Vec()
+word2vec.setVectorSize(vector_size)
+word2vec.setNumIterations(num_iterations)
+word2vec.setMinCount(min_word_count)
 model = word2vec.fit(inp)
-#model.save(sc, "/Users/Avadhoot/msdatascience/course524/cloudmesh/sp17-i524/project/S17-IR-P005/code/model/wikiword2vec")
-model.save(sc, "../model/wikiword2vec")
+model.save(sc, model_location)
 
-synonyms = model.findSynonyms('Sachin',120)
+print("----Model is Trained and Saved Successfully----")
 
-for word, cosine_distance in synonyms:
-    print("{}: {}".format(word, cosine_distance))
+if debug_flag == 1:
+    synonyms = model.findSynonyms('Sachin',10)
 
-s = ('Sachin', 'Cricket', 'Rahul')
-s1 = getAnalogy(s, model)
+    for word, cosine_distance in synonyms:
+        print("{}: {}".format(word, cosine_distance))
 
-print("Analogy: %s" %s1)
 
