@@ -19,16 +19,16 @@ with open(seed_list_file, 'r') as f:
     reader = csv.reader(f)
     seedlist = list(reader)
 
-    index = 0;
+    index = 0
 
     for x in seedlist:
-        if(index > max_pages):
+        if(index > int(max_pages)):
             break
         try:
             w = wikipedia.page(x)
             print("Inserting information of: %s" %w.title)
             myutils.insert_doc(w.title, w.content, data_location)
-            index += 1
+            index = index + 1
             #add links in the queue
             for link in w.links:
                 if link not in seedlist:

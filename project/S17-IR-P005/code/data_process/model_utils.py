@@ -1,7 +1,5 @@
 from __future__ import print_function
-from pyspark import SparkConf, SparkContext
-from pyspark.mllib.feature import Word2Vec
-from pyspark.mllib.feature import Word2VecModel
+from pyspark.ml.feature import Word2VecModel
 
 def getAnalogy(s, model):
     qry = model.transform(s[0]) - model.transform(s[1]) - model.transform(s[2])

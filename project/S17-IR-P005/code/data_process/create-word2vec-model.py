@@ -1,13 +1,11 @@
 from __future__ import print_function
 from pyspark import SparkConf, SparkContext
-from pyspark.mllib.feature import Word2Vec
 from pyspark.sql import Row
 from pyspark.ml.feature import Tokenizer, RegexTokenizer
-from pyspark.sql.functions import col, udf
-from pyspark.sql.types import IntegerType
 from pyspark.ml.feature import StopWordsRemover
-#from pyspark.ml.feature import Word2Vec
+from pyspark.ml.feature import Word2Vec
 from pyspark.sql import SparkSession
+
 import re
 
 import sys
@@ -37,23 +35,6 @@ conf = (SparkConf()
          .set("spark.executor.memory", spark_executor_memory))
 sc = SparkContext(conf = conf)
 
-inp = sc.textFile(data_location).map(lambda row: row.split(" "))
-word2vec = Word2Vec()
-word2vec.setVectorSize(int(vector_size))
-#word2vec.setNumIterations(int(num_iterations))
-word2vec.setMinCount(int(min_word_count))
-model = word2vec.fit(inp)
-model.save(sc, model_location)
-
-print("----Model is Trained and Saved Successfully----")
-
-#if debug_flag == 1:
-#    synonyms = model.findSynonyms('Sachin',10)
-
-#    for word, cosine_distance in synonyms:
-#        print("{}: {}".format(word, cosine_distance))
-
-
 
 # DataFrame Mechanism
 spark = SparkSession.builder.master(spark_master) \
@@ -69,11 +50,15 @@ tokenizer = Tokenizer(inputCol="text", outputCol="words")
 tokDF = tokenizer.transform(df)
 remover = StopWordsRemover(inputCol="words", outputCol="filteredWords")
 filteredDF = remover.transform(tokDF)
-#filteredDF.registerTempTable("df")
-#sqlContext.sql("select size(filteredWords) from df limit 5").show()
-#word2vec = Word2Vec(inputCol="words", outputCol="word2vec")
-#word2vec.setVectorSize(int(vector_size))
-#word2vec.setNumIterations(num_iterations)
-#word2vec.setMinCount(int(min_word_count))
-#model = word2vec.fit(filteredDF)
-#model.save(model_location)
+
+word2vec = Word2Vec(inputCol="words", outputCol="word2vec")
+word2vec.setVectorSize(int(vector_size))
+word2vec.setMinCount(int(min_word_count))
+model = word2vec.fit(filteredDF)
+model.write().save(model_location)
+
+if debug_flag == 1:
+    synonyms = model.findSynonyms('sachin',10)
+    synonyms.show()
+
+spark.stop()
