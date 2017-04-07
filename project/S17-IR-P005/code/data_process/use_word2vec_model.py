@@ -1,11 +1,9 @@
 from __future__ import print_function
 from pyspark import SparkConf, SparkContext
-#from pyspark.mllib.feature import Word2Vec
-from pyspark.mllib.feature import Word2VecModel
-from pyspark.ml.feature import Word2Vec
+from pyspark.ml.feature import Word2VecModel
 from pyspark.sql import SparkSession
+import pandas as pd
 
-import model_utils
 import csv
 
 import sys
@@ -42,29 +40,36 @@ spark = SparkSession.builder.master(spark_master) \
         .config("spark.executor.memory", spark_executor_memory) \
         .getOrCreate()
 
-#word2vec = Word2VecModel()
-#model = Word2VecModel.load(sc, model_location)
+model = Word2VecModel.load(model_location)
 
-model = Word2VecModel.load(sc, model_location)
+
 
 with open(synonym_test_file, 'r') as f:
     reader = csv.reader(f)
-    words = list(reader)
+    orig_words = list(reader)
+    f.close()
+
+
+listPDDF = []
+for orig_word in orig_words:
+    try:
+        synonymsDF = model.findSynonyms(orig_word[0], 10)
+        synonymsPDDF = synonymsDF.toPandas()
+
+        lst = []
+        for i in synonymsPDDF['word']:
+            lst.append(orig_word[0])
+        synonymsPDDF['original_word'] = lst
+
+        listPDDF.append(synonymsPDDF)
+    except:
+        print("Error in word - %s" % word)
+
+resultPDDF = pd.concat(listPDDF)
 
 with open(synonym_result_file, 'w') as rf:
     writer = csv.writer(rf)
+    resultPDDF.to_csv(rf)
+    rf.close()
 
-    for word in words:
-        synonyms = model.findSynonyms(word[0], 10)
-        for s, cosine_distance in synonyms:
-            #print("{}: {}: {}".format(word[0], s, cosine_distance))
-            curr_row = []
-            curr_row.append(word[0])
-            curr_row.append(s)
-            curr_row.append(cosine_distance)
-            writer.writerow(curr_row)
-
-
-#s = ('Sachin', 'Cricket', 'Rahul')
-#s1 = model_utils.getAnalogy(s, model)
-#print("Analogy: %s" %s1)
+spark.stop()
